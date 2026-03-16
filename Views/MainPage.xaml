@@ -20,10 +20,11 @@
 
     <Grid>
         <ScrollViewer>
-            <StackPanel Padding="40" Spacing="24" MaxWidth="800" HorizontalAlignment="Center">
+            <StackPanel Padding="40" Spacing="24" MaxWidth="850" HorizontalAlignment="Center">
                 <TextBlock Text="Web App Builder" Style="{StaticResource TitleTextBlockStyle}" HorizontalAlignment="Left"/>
-                
-                <!-- Core Config -->
+                <TextBlock Text="Create a standalone desktop application from any website." Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource SystemControlPageTextBaseMediumBrush}" Margin="0,-12,0,0"/>
+
+                <!-- Identity -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel Spacing="16">
                         <TextBlock Text="Basic Configuration" Style="{StaticResource SubtitleTextBlockStyle}"/>
@@ -37,35 +38,44 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox x:Name="IconPathBox" PlaceholderText="Leave empty for auto-favicon" IsReadOnly="True"/>
-                                <Button Grid.Column="1" Content="Browse..." Click="BrowseIcon_Click"/>
+                                <TextBox x:Name="IconPathBox" PlaceholderText="Auto-favicon if empty" IsReadOnly="True"/>
+                                <Button Grid.Column="1" Content="Browse Icon..." Click="BrowseIcon_Click"/>
                             </Grid>
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <!-- Splash Screen Settings -->
+                <!-- Visuals -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel Spacing="16">
-                        <TextBlock Text="Splash Screen Settings" Style="{StaticResource SubtitleTextBlockStyle}"/>
-                        <Grid ColumnSpacing="12">
+                        <TextBlock Text="Splash Screen Customization" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                        <Grid ColumnSpacing="20">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="SplashColorBox" Header="Background Color (Hex)" Text="#FFFFFF" Grid.Column="0"/>
-                            <TextBox x:Name="TextColorBox" Header="Text Color (Hex)" Text="#333333" Grid.Column="1"/>
+                            
+                            <StackPanel Spacing="12">
+                                <ComboBox x:Name="SplashTemplateCombo" Header="Animation Template" HorizontalAlignment="Stretch" SelectedIndex="0">
+                                    <ComboBoxItem Content="Modern Minimal" Tag="modern"/>
+                                    <ComboBoxItem Content="Glassmorphism" Tag="glass"/>
+                                    <ComboBoxItem Content="Gradient Wave" Tag="gradient"/>
+                                    <ComboBoxItem Content="Elegant Reveal" Tag="reveal"/>
+                                </ComboBox>
+                                
+                                <TextBlock Text="Splash Background" Style="{StaticResource BodyTextBlockStyle}"/>
+                                <ColorPicker x:Name="SplashColorPicker" Color="White" IsAlphaEnabled="False" IsMoreButtonVisible="False"/>
+                            </StackPanel>
+
+                            <StackPanel Spacing="12" Grid.Column="1">
+                                <TextBlock Text="Text &amp; Loader Color" Style="{StaticResource BodyTextBlockStyle}" Margin="0,0,0,0"/>
+                                <ColorPicker x:Name="TextColorPicker" Color="#333333" IsAlphaEnabled="False" IsMoreButtonVisible="False"/>
+                            </StackPanel>
                         </Grid>
-                        <ComboBox x:Name="SplashTemplateCombo" Header="Animation Template" HorizontalAlignment="Stretch" SelectedIndex="0">
-                            <ComboBoxItem Content="Modern Minimal" Tag="modern"/>
-                            <ComboBoxItem Content="Glassmorphism" Tag="glass"/>
-                            <ComboBoxItem Content="Gradient Wave" Tag="gradient"/>
-                            <ComboBoxItem Content="Elegant Reveal" Tag="reveal"/>
-                        </ComboBox>
                     </StackPanel>
                 </Border>
 
-                <!-- Advanced Features -->
+                <!-- Advanced -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel Spacing="16">
                         <TextBlock Text="Advanced Features" Style="{StaticResource SubtitleTextBlockStyle}"/>
@@ -75,7 +85,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Build & Output -->
+                <!-- Build -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel Spacing="16">
                         <TextBlock Text="Build &amp; Package" Style="{StaticResource SubtitleTextBlockStyle}"/>
@@ -84,14 +94,27 @@
                             <ComboBoxItem Content="Windows Portable (.exe)" Tag="win-portable"/>
                             <ComboBoxItem Content="Both (Installer &amp; Portable)" Tag="win-both"/>
                         </ComboBox>
-                        <Button x:Name="BuildButton" Content="Create &amp; Package App" Click="BuildButton_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch" Height="45"/>
-                        <ProgressBar x:Name="BuildProgressBar" Visibility="Collapsed" IsIndeterminate="True"/>
-                        <InfoBar x:Name="StatusInfoBar" IsOpen="False" IsClosable="True" />
+                        
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="PreviewButton" Content="Preview App" Click="PreviewButton_Click" HorizontalAlignment="Stretch" Height="40"/>
+                            <Button x:Name="BuildButton" Content="Build App" Click="BuildButton_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch" Height="40" Grid.Column="1"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
+                <!-- Status Area -->
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="BuildStatusText" Text="Build Status: Ready" Style="{StaticResource CaptionTextBlockStyle}"/>
+                    <ProgressBar x:Name="BuildProgressBar" Value="0" Maximum="100" Height="10"/>
+                    <InfoBar x:Name="StatusInfoBar" IsOpen="False" IsClosable="True" />
+                </StackPanel>
+
                 <!-- Logs -->
-                <Border Style="{StaticResource CardStyle}" Height="200">
+                <Border Style="{StaticResource CardStyle}" Height="250">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>

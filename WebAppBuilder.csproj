@@ -10,6 +10,7 @@
         <EnableMsixTooling>true</EnableMsixTooling>
         <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
         <WindowsPackageType>None</WindowsPackageType>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
 
         <!-- Project Options -->
         <Nullable>enable</Nullable>

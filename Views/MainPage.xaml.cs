@@ -38,6 +38,15 @@ namespace WebAppBuilder.Views
             });
         }
 
+        private void UpdateProgress(double value, string status)
+        {
+            this.DispatcherQueue.TryEnqueue(() =>
+            {
+                BuildProgressBar.Value = value;
+                BuildStatusText.Text = $"Status: {status}";
+            });
+        }
+
         private async void BrowseIcon_Click(object sender, RoutedEventArgs e)
         {
             var picker = new FileOpenPicker();
@@ -45,10 +54,7 @@ namespace WebAppBuilder.Views
             picker.FileTypeFilter.Add(".ico");
             PreparePickerWithWindow(picker);
             var file = await picker.PickSingleFileAsync();
-            if (file != null) {
-                _selectedIconPath = file.Path;
-                IconPathBox.Text = file.Name;
-            }
+            if (file != null) { _selectedIconPath = file.Path; IconPathBox.Text = file.Name; }
         }
 
         private void PreparePickerWithWindow(object obj)
@@ -59,60 +65,62 @@ namespace WebAppBuilder.Views
             }
         }
 
+        private async void PreviewButton_Click(object sender, RoutedEventArgs e)
+        {
+            string appName = AppNameBox.Text.Trim();
+            string appUrl = AppUrlBox.Text.Trim();
+            if (string.IsNullOrEmpty(appName) || string.IsNullOrEmpty(appUrl)) { ShowError("Need Name and URL to preview."); return; }
+
+            SetLoading(true);
+            try {
+                Log("Preparing instant preview...");
+                string targetDir = await PrepareTempBuildAsync(appName, appUrl);
+                Log("Launching app preview (Electron)...");
+                await RunCommandAsync("npm start", targetDir, true);
+            } catch (Exception ex) { ShowError(ex.Message); }
+            finally { SetLoading(false); }
+        }
+
         private async void BuildButton_Click(object sender, RoutedEventArgs e)
         {
             string appName = AppNameBox.Text.Trim();
             string appUrl = AppUrlBox.Text.Trim();
             string format = (FormatComboBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "win-nsis";
 
-            if (string.IsNullOrEmpty(appName) || string.IsNullOrEmpty(appUrl)) {
-                ShowError("Please provide both App Name and Web URL.");
-                return;
-            }
+            if (string.IsNullOrEmpty(appName) || string.IsNullOrEmpty(appUrl)) { ShowError("Missing information."); return; }
 
             LogTextBox.Text = "";
             SetLoading(true);
             try {
-                await BuildWebAppAsync(appName, appUrl, format);
-                ShowSuccess("Build completed! Files moved to 'Completed Apps'.");
+                UpdateProgress(10, "Preparing workspace...");
+                string targetDir = await PrepareTempBuildAsync(appName, appUrl);
+                
+                UpdateProgress(30, "Installing dependencies...");
+                await RunCommandAsync("npm install", targetDir);
+
+                UpdateProgress(60, "Packaging application...");
+                string buildCmd = format switch {
+                    "win-nsis" => "npx electron-builder --win nsis",
+                    "win-portable" => "npx electron-builder --win portable",
+                    "win-both" => "npx electron-builder --win nsis portable",
+                    _ => "npx electron-builder --win nsis"
+                };
+                await RunCommandAsync(buildCmd, targetDir);
+
+                UpdateProgress(90, "Moving to Completed Apps...");
+                await FinalizeBuildAsync(targetDir, appName);
+                
+                UpdateProgress(100, "Ready");
+                ShowSuccess("Build completed successfully!");
                 ShowNotification(appName, "Your app is ready!");
-            } catch (Exception ex) {
-                Log($"ERROR: {ex.Message}");
-                ShowError(ex.Message);
-            } finally {
-                SetLoading(false);
-            }
+            } catch (Exception ex) { Log($"ERROR: {ex.Message}"); ShowError(ex.Message); UpdateProgress(0, "Build Failed"); }
+            finally { SetLoading(false); }
         }
 
-        private void ShowNotification(string title, string body)
-        {
-            try {
-                string xml = $@"<toast><visual><binding template='ToastGeneric'><text>{title}</text><text>{body}</text></binding></visual></toast>";
-                var doc = new XmlDocument();
-                doc.LoadXml(xml);
-                var toast = new ToastNotification(doc);
-                ToastNotificationManager.CreateToastNotifier().Show(toast);
-            } catch {}
-        }
-
-        private void SetLoading(bool isLoading)
-        {
-            BuildButton.IsEnabled = !isLoading;
-            BuildProgressBar.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        private async Task BuildWebAppAsync(string name, string url, string format)
+        private async Task<string> PrepareTempBuildAsync(string name, string url)
         {
             string currentDir = Environment.CurrentDirectory;
-            string templatePath = Path.Combine(currentDir, "Template");
-            
-            if (!Directory.Exists(templatePath)) {
-                string baseDir = AppContext.BaseDirectory;
-                var dir = new DirectoryInfo(baseDir);
-                while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Template"))) dir = dir.Parent;
-                if (dir != null) templatePath = Path.Combine(dir.FullName, "Template");
-            }
-
+            string templatePath = GetTemplatePath();
             string safeName = name.Replace(" ", "_");
             foreach (char c in Path.GetInvalidFileNameChars()) safeName = safeName.Replace(c, '_');
 
@@ -127,25 +135,30 @@ namespace WebAppBuilder.Views
             if (!string.IsNullOrEmpty(_selectedIconPath)) {
                 File.Copy(_selectedIconPath, Path.Combine(targetDir, "icon.png"), true);
             } else {
-                Log("Attempting to fetch high-res favicon...");
                 try {
                     string domain = new Uri(url).Host;
                     using var client = new HttpClient();
                     var iconData = await client.GetByteArrayAsync($"https://logo.clearbit.com/{domain}?size=256");
                     if (iconData.Length > 5000) await File.WriteAllBytesAsync(Path.Combine(targetDir, "icon.png"), iconData);
-                } catch { Log("Using default icon."); }
+                } catch { }
             }
 
-            // CSS Injection
-            string userCss = CustomCssBox.Text;
+            // Colors
+            var bg = SplashColorPicker.Color;
+            var tx = TextColorPicker.Color;
+            string splashBg = $"#{bg.R:X2}{bg.G:X2}{bg.B:X2}";
+            string splashTx = $"#{tx.R:X2}{tx.G:X2}{tx.B:X2}";
+            string template = (SplashTemplateCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "modern";
+
+            var config = new { appName = name, url = url, splashColor = splashBg, splashTextColor = splashTx, splashTemplate = template };
+            await File.WriteAllTextAsync(Path.Combine(targetDir, "config.json"), JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
+
+            // Advanced Features (CSS Injection)
+            string userCss = "";
             if (BlockAdsCheck.IsChecked == true) userCss += "\n[class*='ad-'], [id*='ad-'] { display: none !important; }";
             if (ForceDarkCheck.IsChecked == true) userCss += "\nhtml, body { filter: invert(0.9) hue-rotate(180deg) !important; background: #fff !important; }";
+            if (!string.IsNullOrWhiteSpace(CustomCssBox.Text)) userCss += "\n" + CustomCssBox.Text;
             if (!string.IsNullOrWhiteSpace(userCss)) await File.WriteAllTextAsync(Path.Combine(targetDir, "user.css"), userCss);
-
-            // Config.json
-            string splashTemplate = (SplashTemplateCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "modern";
-            var config = new { appName = name, url = url, splashColor = SplashColorBox.Text, splashTemplate = splashTemplate, splashTextColor = TextColorBox.Text };
-            await File.WriteAllTextAsync(Path.Combine(targetDir, "config.json"), JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
 
             // Package.json
             string pkgPath = Path.Combine(targetDir, "package.json");
@@ -158,64 +171,86 @@ namespace WebAppBuilder.Views
                 await File.WriteAllTextAsync(pkgPath, JsonSerializer.Serialize(pkgObj, new JsonSerializerOptions { WriteIndented = true }));
             }
 
-            Log("Installing dependencies...");
-            await RunCommandAsync("npm install", targetDir);
-
-            Log($"Packaging for {format}...");
-            string buildCmd = "";
-            if (format == "win-nsis") buildCmd = "npx electron-builder --win nsis";
-            else if (format == "win-portable") buildCmd = "npx electron-builder --win portable";
-            else if (format == "win-both") buildCmd = "npx electron-builder --win nsis portable";
-
-            await RunCommandAsync(buildCmd, targetDir);
-
-            Log("Finalizing...");
-            string outDir = Path.Combine(tempBuildDir, "Builds");
-            string finalDir = Path.Combine(currentDir, "Completed Apps");
-            if (!Directory.Exists(finalDir)) Directory.CreateDirectory(finalDir);
-
-            if (Directory.Exists(outDir)) {
-                foreach (var file in Directory.GetFiles(outDir)) {
-                    string fileName = Path.GetFileName(file);
-                    if (fileName.EndsWith(".exe") || fileName.EndsWith(".msi")) {
-                        File.Copy(file, Path.Combine(finalDir, fileName), true);
-                        Log($"Moved to Completed Apps: {fileName}");
-                    }
-                }
-            }
-
-            Log("Wiping TempBuild...");
-            try { Directory.Delete(tempBuildDir, true); } catch { Log("Warning: Could not delete TempBuild folder completely."); }
+            return targetDir;
         }
 
-        private async Task RunCommandAsync(string command, string workingDir)
+        private async Task FinalizeBuildAsync(string targetDir, string name)
+        {
+            await Task.Run(() => {
+                string currentDir = Environment.CurrentDirectory;
+                string? parentDir = Path.GetDirectoryName(targetDir);
+                if (parentDir == null) return;
+
+                string outDir = Path.Combine(parentDir, "Builds");
+                string finalDir = Path.Combine(currentDir, "Completed Apps");
+                if (!Directory.Exists(finalDir)) Directory.CreateDirectory(finalDir);
+
+                if (Directory.Exists(outDir)) {
+                    foreach (var file in Directory.GetFiles(outDir)) {
+                        string fileName = Path.GetFileName(file);
+                        if (fileName.EndsWith(".exe") || fileName.EndsWith(".msi")) {
+                            File.Copy(file, Path.Combine(finalDir, fileName), true);
+                        }
+                    }
+                }
+                try { Directory.Delete(parentDir, true); } catch { }
+            });
+        }
+
+        private string GetTemplatePath()
+        {
+            string path = Path.Combine(Environment.CurrentDirectory, "Template");
+            if (!Directory.Exists(path)) {
+                path = Path.Combine(AppContext.BaseDirectory, "Template");
+                if (!Directory.Exists(path)) {
+                    var dir = new DirectoryInfo(AppContext.BaseDirectory);
+                    while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "Template"))) dir = dir.Parent;
+                    if (dir != null) path = Path.Combine(dir.FullName, "Template");
+                }
+            }
+            return path;
+        }
+
+        private async Task RunCommandAsync(string command, string workingDir, bool isBackground = false)
         {
             var process = new Process {
                 StartInfo = new ProcessStartInfo {
                     FileName = "cmd.exe", Arguments = $"/c {command}", WorkingDirectory = workingDir,
-                    RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true
+                    RedirectStandardOutput = !isBackground, RedirectStandardError = !isBackground, UseShellExecute = false, CreateNoWindow = true
                 }
             };
-            process.OutputDataReceived += (s, e) => { if (e.Data != null) Log($"[OUT] {e.Data}"); };
-            process.ErrorDataReceived += (s, e) => { if (e.Data != null) Log($"[ERR] {e.Data}"); };
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            await process.WaitForExitAsync();
-            if (process.ExitCode != 0) throw new Exception($"Command failed: {command}");
+            if (!isBackground) {
+                process.OutputDataReceived += (s, e) => { if (e.Data != null) Log($"[OUT] {e.Data}"); };
+                process.ErrorDataReceived += (s, e) => { if (e.Data != null) Log($"[ERR] {e.Data}"); };
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+                await process.WaitForExitAsync();
+                if (process.ExitCode != 0) throw new Exception($"Command failed: {command}");
+            } else {
+                process.Start();
+            }
         }
 
         private static void CopyDirectory(string sourceDir, string destinationDir)
         {
             Directory.CreateDirectory(destinationDir);
-            foreach (var file in Directory.GetFiles(sourceDir)) File.Copy(file, Path.Combine(destinationDir, Path.GetFileName(file)));
+            foreach (var file in Directory.GetFiles(sourceDir)) File.Copy(file, Path.Combine(destinationDir, Path.GetFileName(file)), true);
             foreach (var subDir in Directory.GetDirectories(sourceDir)) {
                 if (Path.GetFileName(subDir).Equals("node_modules", StringComparison.OrdinalIgnoreCase)) continue;
                 CopyDirectory(subDir, Path.Combine(destinationDir, Path.GetFileName(subDir)));
             }
         }
 
+        private void SetLoading(bool isLoading) { BuildButton.IsEnabled = !isLoading; PreviewButton.IsEnabled = !isLoading; }
         private void ShowSuccess(string msg) { StatusInfoBar.Message = msg; StatusInfoBar.Severity = InfoBarSeverity.Success; StatusInfoBar.IsOpen = true; }
         private void ShowError(string msg) { StatusInfoBar.Message = msg; StatusInfoBar.Severity = InfoBarSeverity.Error; StatusInfoBar.IsOpen = true; }
+        private void ShowNotification(string title, string body) {
+            try {
+                var xml = $"<toast><visual><binding template='ToastGeneric'><text>{title}</text><text>{body}</text></binding></visual></toast>";
+                var doc = new XmlDocument(); doc.LoadXml(xml);
+                ToastNotificationManager.CreateToastNotifier().Show(new ToastNotification(doc));
+            } catch { }
+        }
     }
 }
