@@ -1,0 +1,109 @@
+<Page
+    x:Class="WebAppBuilder.Views.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="Transparent">
+
+    <Page.Resources>
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource LayerFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+    </Page.Resources>
+
+    <Grid>
+        <ScrollViewer>
+            <StackPanel Padding="40" Spacing="24" MaxWidth="800" HorizontalAlignment="Center">
+                <TextBlock Text="Web App Builder" Style="{StaticResource TitleTextBlockStyle}" HorizontalAlignment="Left"/>
+                
+                <!-- Core Config -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Basic Configuration" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                        <TextBox x:Name="AppNameBox" Header="App Name" PlaceholderText="e.g. GitHub"/>
+                        <TextBox x:Name="AppUrlBox" Header="Website URL" PlaceholderText="https://..."/>
+                        
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="App Icon" Style="{StaticResource BodyTextBlockStyle}"/>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="IconPathBox" PlaceholderText="Leave empty for auto-favicon" IsReadOnly="True"/>
+                                <Button Grid.Column="1" Content="Browse..." Click="BrowseIcon_Click"/>
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Splash Screen Settings -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Splash Screen Settings" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="SplashColorBox" Header="Background Color (Hex)" Text="#FFFFFF" Grid.Column="0"/>
+                            <TextBox x:Name="TextColorBox" Header="Text Color (Hex)" Text="#333333" Grid.Column="1"/>
+                        </Grid>
+                        <ComboBox x:Name="SplashTemplateCombo" Header="Animation Template" HorizontalAlignment="Stretch" SelectedIndex="0">
+                            <ComboBoxItem Content="Modern Minimal" Tag="modern"/>
+                            <ComboBoxItem Content="Glassmorphism" Tag="glass"/>
+                            <ComboBoxItem Content="Gradient Wave" Tag="gradient"/>
+                            <ComboBoxItem Content="Elegant Reveal" Tag="reveal"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Border>
+
+                <!-- Advanced Features -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Advanced Features" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                        <CheckBox x:Name="BlockAdsCheck" Content="Enable Ad-Blocking (Experimental)"/>
+                        <CheckBox x:Name="ForceDarkCheck" Content="Enable Force Dark Mode (Experimental)"/>
+                        <TextBox x:Name="CustomCssBox" Header="Custom CSS Injection" PlaceholderText="/* CSS */" AcceptsReturn="True" Height="100" FontFamily="Consolas"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Build & Output -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Build &amp; Package" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                        <ComboBox x:Name="FormatComboBox" Header="Output Format" HorizontalAlignment="Stretch" SelectedIndex="0">
+                            <ComboBoxItem Content="Windows Installer (NSIS)" Tag="win-nsis"/>
+                            <ComboBoxItem Content="Windows Portable (.exe)" Tag="win-portable"/>
+                            <ComboBoxItem Content="Both (Installer &amp; Portable)" Tag="win-both"/>
+                        </ComboBox>
+                        <Button x:Name="BuildButton" Content="Create &amp; Package App" Click="BuildButton_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch" Height="45"/>
+                        <ProgressBar x:Name="BuildProgressBar" Visibility="Collapsed" IsIndeterminate="True"/>
+                        <InfoBar x:Name="StatusInfoBar" IsOpen="False" IsClosable="True" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Logs -->
+                <Border Style="{StaticResource CardStyle}" Height="200">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Build Logs" Margin="0,0,0,8" FontWeight="Bold"/>
+                        <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1">
+                            <TextBox x:Name="LogTextBox" IsReadOnly="True" AcceptsReturn="True" Background="Transparent" BorderThickness="0" FontSize="11" FontFamily="Consolas"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

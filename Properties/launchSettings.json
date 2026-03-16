@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "WebAppBuilder (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "WebAppBuilder (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
