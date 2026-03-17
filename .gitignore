@@ -1,0 +1,30 @@
+# .gitignore for .NET and Node.js (Electron)
+
+# Build folders
+[Bb]in/
+[Oo]bj/
+TempBuild/
+BuiltApps/
+Completed\ Apps/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Node.js
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# OS Files
+Thumbs.db
+Desktop.ini
+
+# Project specific
+*.zip
+*.exe
+*.msi
